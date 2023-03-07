@@ -1,3 +1,7 @@
+//IMPORTS
+open util/relation 
+open util/ternary
+
 //SIGNATURES
 
 sig Area {
@@ -35,16 +39,19 @@ sig CropType{
 	humidityLeveRequiredl: one PerceptLevels
 }
 sig Sensor{
-	percept: one PerceptType,
+	measures: one PerceptType,
 	linked : some Sensor,
 	placement : one Area,
-	coloured : one Colour
-	
+}
 
+sig PerceptType{
+	type : one Percepts, 
+	coloured: one Colour
 }
 
 sig Pipe{
-	controlled: Valve}
+	controlled: Valve
+}
 
 sig Controller{}
 
@@ -52,7 +59,7 @@ sig Controller{}
 
 //ENUMERATIONS
 
-enum PerceptType {temperature,moisture,sunlight,humidity}
+enum Percepts {temperature,moisture,sunlight,humidity}
 enum PerceptLevels{Low,Med,High}
 enum irrigationType{drip,sprinkler,misting}
 //enum ReservoirWaterLevel { empty, moderate, full }
@@ -68,29 +75,37 @@ enum Colour { Red, Green, Blue, Yellow }
 //FACTS
 
 
-fact{
+fact GraphColouringOfNetworkOfSensorsInAnArea{
 
 // if two sensors have the same percept type that means they have the same colour
-all disj s,x: Sensor  | (s.percept = x.percept ) => (s.coloured = x.coloured) 
+all disj s,x: Sensor  | (s.measures.type = x.measures.type) => (s.measures.coloured = x.measures.coloured) 
 
-// of two sensors are linked they are not the same color
-all disj s,x: Sensor | s.placement = x.placement and (x in s.linked or s in x.linked) => not(s.coloured in x.coloured)
+// if two sensors are linked they are not the same color
+ all disj s1, s2 : Sensor | s2 in s1.linked  => not(s1.measures.coloured = s2.measures.coloured)
 
-// sensor is no it linked to itself
+//links between sensors are mutual
+symmetric[linked]
+
+// sensor is not linked to itself
 all s: Sensor | not (s in s.linked)
 
 
 //if two sensors are linked they are in the same area
 all s: Sensor | all x: s.linked | s.placement = x.placement
 
+// All percepts are in an area
+all a: Area, p:Percepts| p in a.sensors.measures.type 
 
-all a: Area, p:PerceptType| p in a.sensors.percept 
+//different percepts have different colours
+ all disj p1,p2: PerceptType | not(p2.type = p1.type) implies not(p1.coloured = p2.coloured)
 
-all disj s1, s2: Sensor | s1.coloured != s2.coloured => s1 in s2.*linked or s2 in s1.*linked
 
-//all disj a1, a2 : Area | not (a1.sensors in a2.sensors)
+//all sensors with different colours are connected
+all disj s,j:Sensor | all a:Area | ( ((s+j) in a.sensors) and not(s.measures.coloured = j.measures.coloured)) implies j in s.linked and s in j.linked
+
 
 }
+
 
 
 // END OF FACTS
