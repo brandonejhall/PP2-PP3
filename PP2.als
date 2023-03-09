@@ -1,7 +1,7 @@
 //IMPORTS
 open util/relation 
 open util/ternary
-
+open util/graph[Pipe]
 //SIGNATURES
 
 sig Area {
@@ -16,15 +16,21 @@ beside: some Area,
 irrigatedWith : some Pipe,
 sensors : set Sensor,
 controller : one Controller,
-planted : one CropType
+planted : one CropType,
+point : one AccessPoint
+
+
+}{
 
 
 }
 
-sig AccessPoint{}
+sig AccessPoint{
+ watching: set Sensor
+}
 
 
-sig Resevoir{}
+sig Reservoir{}
 
 sig Valve{
 	postioned : one ValvePosition
@@ -50,8 +56,13 @@ sig PerceptType{
 }
 
 sig Pipe{
-	controlled: Valve
+	controlled: Valve,
+	connectedTo: set Pipe,
+	irrigates : Area
 }
+
+sig MainAccessPoint{
+controls: set AccessPoint}
 
 sig Controller{}
 
@@ -74,7 +85,7 @@ enum Colour { Red, Green, Blue, Yellow }
 
 //FACTS
 
-
+//SENSORS ARE CONNECTED VIA GRAPH COLOURING
 fact GraphColouringOfNetworkOfSensorsInAnArea{
 
 // if two sensors have the same percept type that means they have the same colour
@@ -103,17 +114,57 @@ all a: Area, p:Percepts| p in a.sensors.measures.type
 //all sensors with different colours are connected
 all disj s,j:Sensor | all a:Area | ( ((s+j) in a.sensors) and not(s.measures.coloured = j.measures.coloured)) implies j in s.linked and s in j.linked
 
+//if sensor is in an ar
+}
 
+// this creates  the star between the seperate access points in the system 
+fact SystemStar{
+// all sensors in an area will be watched by a single acces point
+all a: Area |one ap: AccessPoint |ap.watching = a.sensors and ap in a.point
+
+all ap: AccessPoint |one map:MainAccessPoint| ap in map.controls
+
+one MainAccessPoint
+
+all a: AccessPoint | one map: MainAccessPoint | a in map.controls
+
+all a1, a2: Area | a1 != a2 => a1.point != a2.point
+
+all ap: AccessPoint, a: Area | ap in a.point => ap.watching = a.sensors
+
+//sensors do not share between areas
+all disj a1, a2: Area, s: Sensor | s in a1.sensors and s in a2.sensors implies a1 = a2
+
+all a : AccessPoint, a1: Area| a1.sensors = a.watching => a = a1.point
 }
 
 
+
+fact DirectedTreeOfPipes {
+// there exists a pipe that comes from no pipe but it must go to something(starting pipe)
+one p:Pipe | no (connectedTo.p & Pipe) and some (p.connectedTo & Pipe)
+// there exists some pipes that connects to no pipes but there exists some pipes it comes from(leaves)
+some p:Pipe | no (p.connectedTo & Pipe) and some (connectedTo.p & Pipe)
+// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
+all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
+//ensures pipe does not have cycles
+acyclic[connectedTo,Pipe]
+}
+
+
+fact constraints{
+
+symmetric[beside]
+all s: Sensor | s in s.placement.sensors
+
+}
 
 // END OF FACTS
 
 //PREDICATE
 pred system1[]{some Area some Valve some CropType some Sensor some Pipe some Controller
 
-#Area > 2}
-run system1 for 4 expect 1
+}
+run system1 for 8 expect 1
 
 //END OF PREDICATE
