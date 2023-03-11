@@ -7,10 +7,11 @@ open util/graph[Pipe]
 sig Area {
 
 measuredAt: one LandSize,
-tempMeasuredAt: one PerceptLevels,
-moistureLevel: one PerceptLevels , 
-sunLevel: one PerceptLevels,
-humidityLevel: one PerceptLevels,
+standardConditions: PerceptType -> PerceptLevels,
+//tempMeasuredAt: one PerceptLevels,
+//moistureLevel: one PerceptLevels , 
+//sunLevel: one PerceptLevels,
+//humidityLevel: one PerceptLevels,
 elevation : one PerceptLevels,
 beside: Area,
 irrigatedWith : some Pipe,
@@ -59,7 +60,7 @@ sig PerceptType{
 }
 
 sig Pipe{
-	controlled: Valve,
+	fittedWtih: Valve,
 	connectedTo: set Pipe,
 	irrigates : Area
 }
@@ -160,7 +161,7 @@ acyclic[connectedTo,Pipe]
 fact constraints{
 symmetric[beside]
 
-
+all s: Sensor | s in s.placement.sensors
 
 }
 
@@ -169,7 +170,8 @@ symmetric[beside]
 //PREDICATE
 pred system1[]{some Area some Valve some CropType some Sensor some Pipe some Controller
 #Area = 1
-
+// All sensors within an area are receiving readings aligned with the level required for the crop type in that area.
+ all a: Area, s: Sensor | (s in a.point.watching) implies (s.measures -> s.measurement in a.planted.required)
 }
 run system1 for 4 expect 1
 
