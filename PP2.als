@@ -151,7 +151,8 @@ all p1,p2:Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
 
 
 fact constraints{
-//symmetric[beside]
+symmetric[beside]
+symmetric[connectedTo]
 
 //all s: Sensor | s in s.placement.sensors
 //all a,b: Area| b in a.beside implies a != b
@@ -186,19 +187,19 @@ some Pipe
 run system1 for 4 expect 1
 
 
-pred AllAreasHaveAreADifferentSize[]{
+pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 
  one a: Area | a.measuredAt = small
  one a: Area | a.measuredAt = mid 
  one a: Area | a.measuredAt = large
  one a: Area | a.landPorosity = loose
  one a: Area | a.landPorosity = compacted 
- one a: Area | a.landPorosity = normal
+ one a: Area | a.landPorosity = normal 
  all p : Pipe | p in Pipe.connectedTo
  one p : Pipe | p in Reservoir.distributesTo
 
 //some AreaSmall, AreaLarge, AreaMid: Area | (AreaSmall.measuredAt = small and #AreaSmall.sensors = 8) and AreaLarge.measuredAt = large and AreaMid.measuredAt = mid
 
 }
-run AllAreasHaveAreADifferentSize for  27
+run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for  27
 //END OF PREDICATE
