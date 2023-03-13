@@ -47,7 +47,7 @@ sig PerceptType{
 }
 
 sig Pipe{
-	fittedWtih: Valve,
+	fittedWith: one Valve,
 	connectedTo: set Pipe,
 	irrigates : one Area
 }
@@ -133,10 +133,7 @@ all c: CropType, p:Percepts| p in dom[c.required].type
 
 
 fact DirectedTreeOfPipes {
-// there exists a pipe that comes from no pipe but it must go to something(starting pipe) this pipe is also connected to the reservoir
-//one p:Pipe | no (connectedTo.p & Pipe) and some (p.connectedTo & Pipe)
-// there exists some pipes that connects to no pipes but there exists some pipes it comes from(leaves)
-//some p:Pipe | no (p.connectedTo & Pipe) and some (connectedTo.p & Pipe)
+
 // if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
 all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
 
@@ -146,6 +143,8 @@ all p1,p2:Pipe | (p1.irrigates = p2.irrigates) => p1 = p2
 no (iden & connectedTo)
 
 all a : Area | a in Pipe.irrigates
+
+all p1,p2:Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
 
 
 }
@@ -192,6 +191,9 @@ pred AllAreasHaveAreADifferentSize[]{
  one a: Area | a.measuredAt = small
  one a: Area | a.measuredAt = mid 
  one a: Area | a.measuredAt = large
+ one a: Area | a.landPorosity = loose
+ one a: Area | a.landPorosity = compacted 
+ one a: Area | a.landPorosity = normal
  all p : Pipe | p in Pipe.connectedTo
  one p : Pipe | p in Reservoir.distributesTo
 
