@@ -8,44 +8,31 @@ sig Area {
 
 measuredAt: one LandSize,
 standardConditions: PerceptType -> PerceptLevels,
-//tempMeasuredAt: one PerceptLevels,
-//moistureLevel: one PerceptLevels , 
-//sunLevel: one PerceptLevels,
-//humidityLevel: one PerceptLevels,
-elevation : one PerceptLevels,
-beside: Area,
-irrigatedWith : some Pipe,
+landPorosity: one SoilPorosity,
+beside: set Area,
 sensors : set Sensor,
-//controller : one Controller,
 planted : one CropType,
 point : one AccessPoint
 
 
-}{
-
-
 }
-
 sig AccessPoint{
  watching: set Sensor
 }
 
 
-sig Reservoir{}
+sig Reservoir{
+	distributesTo: one Pipe
+}
 
 sig Valve{
 	postioned : one ValvePosition
 }
 
-sig Size,Elevation{}
 
 sig CropType{
-	required: PerceptType -> PerceptLevels
-/*
-	tempRequired: one PerceptLevels,
-	moistureLevelRequired: one PerceptLevels, 
-	sunLeveRequiredl: one PerceptLevels,
-	humidityLeveRequiredl: one PerceptLevels*/
+	required: PerceptType -> PerceptLevels,
+	requiredPorosity : one SoilPorosity
 }
 sig Sensor{
 	measures: one PerceptType,
@@ -62,7 +49,7 @@ sig PerceptType{
 sig Pipe{
 	fittedWtih: Valve,
 	connectedTo: set Pipe,
-	irrigates : Area
+	irrigates : one Area
 }
 
 sig MainAccessPoint{
@@ -77,10 +64,9 @@ sig Controller{}
 enum Percepts {temperature,moisture,sunlight,humidity}
 enum PerceptLevels{Low,Med,High}
 enum irrigationType{drip,sprinkler,misting}
-//enum ReservoirWaterLevel { empty, moderate, full }
 enum ValvePosition{ opened , closed}
-//enum ElevationLevel { below_sea_level,at_sea_level, above_sea_level  }
 enum LandSize{small,mid,large}
+enum SoilPorosity{loose,compacted,normal}
 enum Colour { Red, Green, Blue, Yellow }
 
 
@@ -96,7 +82,7 @@ all disj s,x: Sensor  | (s.measures.type = x.measures.type) => (s.measures.colou
 // if two sensors are linked they are not the same color
  all disj s1, s2 : Sensor | s2 in s1.linked  => not(s1.measures.coloured = s2.measures.coloured)
 //links between sensors are mutual
-symmetric[linked]
+//symmetric[linked]
 // sensor is not linked to itself
 all s: Sensor | not (s in s.linked)
 //if two sensors are linked they are in the same area
@@ -145,34 +131,72 @@ all c: CropType, p:Percepts| p in dom[c.required].type
 }
 
 
-/*
+
 fact DirectedTreeOfPipes {
 // there exists a pipe that comes from no pipe but it must go to something(starting pipe) this pipe is also connected to the reservoir
-one p:Pipe | no (connectedTo.p & Pipe) and some (p.connectedTo & Pipe)
+//one p:Pipe | no (connectedTo.p & Pipe) and some (p.connectedTo & Pipe)
 // there exists some pipes that connects to no pipes but there exists some pipes it comes from(leaves)
-some p:Pipe | no (p.connectedTo & Pipe) and some (connectedTo.p & Pipe)
+//some p:Pipe | no (p.connectedTo & Pipe) and some (connectedTo.p & Pipe)
 // if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
 all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
-//ensures pipe does not have cycles
-acyclic[connectedTo,Pipe]
+
+// if a pipe irrigates an area then that pipe is the only pipe in that area
+all p1,p2:Pipe | (p1.irrigates = p2.irrigates) => p1 = p2
+
+no (iden & connectedTo)
+
+all a : Area | a in Pipe.irrigates
+
+
 }
-*/
+
 
 fact constraints{
-symmetric[beside]
+//symmetric[beside]
 
-all s: Sensor | s in s.placement.sensors
+//all s: Sensor | s in s.placement.sensors
+//all a,b: Area| b in a.beside implies a != b
+}
 
+fact FactsAboutArea{
+//small areas have 4 sensors
+all a:Area | (a.measuredAt = small) => #a.sensors = 4
+//mid sized areas have 8 sensors
+all a:Area | (a.measuredAt = mid) => #a.sensors = 8
+//large areas have 12 sensors
+all a:Area | (a.measuredAt = large) => #a.sensors = 12
+// the crop planted in that area must match with the land's soil porosity
+all a:Area, ct: CropType|  ct in a.planted => ct.requiredPorosity = a.landPorosity
+//an area cannot be beside itself
+no (iden & beside)
 }
 
 // END OF FACTS
 
 //PREDICATE
-pred system1[]{some Area some Valve some CropType some Sensor some Pipe some Controller
+pred system1[]{
+some Area 
+some Valve 
+some CropType 
+some Sensor 
+some Pipe 
 #Area = 1
 // All sensors within an area are receiving readings aligned with the level required for the crop type in that area.
  all a: Area, s: Sensor | (s in a.point.watching) implies (s.measures -> s.measurement in a.planted.required)
 }
 run system1 for 4 expect 1
 
+
+pred AllAreasHaveAreADifferentSize[]{
+
+ one a: Area | a.measuredAt = small
+ one a: Area | a.measuredAt = mid 
+ one a: Area | a.measuredAt = large
+ all p : Pipe | p in Pipe.connectedTo
+ one p : Pipe | p in Reservoir.distributesTo
+
+//some AreaSmall, AreaLarge, AreaMid: Area | (AreaSmall.measuredAt = small and #AreaSmall.sensors = 8) and AreaLarge.measuredAt = large and AreaMid.measuredAt = mid
+
+}
+run AllAreasHaveAreADifferentSize for  27
 //END OF PREDICATE
