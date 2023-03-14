@@ -137,10 +137,10 @@ fact CropTypes {
 
 fact perceptTypeConstraints{
 	// Each percept type has one colour
-	all p: PerceptType, c: p.coloured | one p1: PerceptType | p1.coloured = c
+	all c: Colour | one p1: PerceptType | p1.coloured = c
 }
 
-fact DirectedTreeOfPipes {
+fact DirectedGraphOfPipes {
 	// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
 	all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
 	
@@ -235,7 +235,7 @@ pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	all p : Pipe | p in Pipe.connectedTo
 	one p : Pipe | p in Reservoir.distributesTo
 }
-run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for 27
+// run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for 27
 
 
 
