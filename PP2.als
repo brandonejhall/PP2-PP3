@@ -142,10 +142,10 @@ fact perceptTypeConstraints{
 
 fact DirectedGraphOfPipes {
 	// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
-	all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
+	all disj p1, p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
 	
 	// if a pipe irrigates an area then that pipe is the only pipe in that area
-	all p1,p2:Pipe | (p1.irrigates = p2.irrigates) => p1 = p2
+	all p1, p2:Pipe | (p1.irrigates = p2.irrigates) => p1 = p2
 	
 	//pipe cannot be connected to itself
 	no (iden & connectedTo)
@@ -154,10 +154,10 @@ fact DirectedGraphOfPipes {
 	all a : Area | a in Pipe.irrigates
 	
 	// each pipe is fitted with a single unique valve
-	all p1,p2:Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
+	all p1 ,p2: Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
 	
 	// All valves in the system must be fitted to a pipe
-	all v : Valve | v in ran[fittedWith]
+	all v: Valve | v in ran[fittedWith]
 	
 	// All pipes that are not attached to the reservoir are connected to another pipe
 	all p: Pipe | p in p.*connectedTo
