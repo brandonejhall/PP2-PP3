@@ -130,6 +130,11 @@ fact CropTypes {
 all c: CropType, p:Percepts| p in dom[c.required].type
 }
 
+fact perceptTypeConstraints{
+
+ all p: PerceptType, c: p.coloured | one p1: PerceptType | p1.coloured = c
+}
+
 
 
 fact DirectedTreeOfPipes {
@@ -146,13 +151,16 @@ all a : Area | a in Pipe.irrigates
 
 all p1,p2:Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
 
+all v : Valve | v in ran[fittedWith]
 
+placement = ~sensors
 }
 
 
 fact constraints{
 symmetric[beside]
 symmetric[connectedTo]
+one Reservoir
 
 //all s: Sensor | s in s.placement.sensors
 //all a,b: Area| b in a.beside implies a != b
@@ -169,11 +177,15 @@ all a:Area | (a.measuredAt = large) => #a.sensors = 12
 all a:Area, ct: CropType|  ct in a.planted => ct.requiredPorosity = a.landPorosity
 //an area cannot be beside itself
 no (iden & beside)
+// All CropTypes in system must be planted in an area
+all c : CropType | c in ran[planted]
+
 }
 
 // END OF FACTS
 
 //PREDICATE
+
 pred system1[]{
 some Area 
 some Valve 
@@ -198,8 +210,9 @@ pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
  all p : Pipe | p in Pipe.connectedTo
  one p : Pipe | p in Reservoir.distributesTo
 
-//some AreaSmall, AreaLarge, AreaMid: Area | (AreaSmall.measuredAt = small and #AreaSmall.sensors = 8) and AreaLarge.measuredAt = large and AreaMid.measuredAt = mid
-
 }
 run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for  27
+
+
+
 //END OF PREDICATE
