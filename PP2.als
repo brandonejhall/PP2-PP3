@@ -7,7 +7,7 @@ open util/graph[Pipe]
 sig Area {
 
 measuredAt: one LandSize,
-standardConditions: PerceptType -> PerceptLevels,
+//standardConditions: PerceptType -> PerceptLevels,
 landPorosity: one SoilPorosity,
 beside: set Area,
 sensors : set Sensor,
@@ -38,7 +38,15 @@ sig Sensor{
 	measures: one PerceptType,
 	linked : some Sensor,
 	placement : one Area,
-	measurement : one PerceptLevels
+	measurement : one PerceptReading
+}
+
+sig PerceptReading{
+	higherReading: lone PerceptReading,
+	level: one PerceptLevels
+} {
+ all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
+ some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
 }
 
 sig PerceptType{
@@ -55,7 +63,7 @@ sig Pipe{
 sig MainAccessPoint{
 controls: set AccessPoint}
 
-sig Controller{}
+//sig Controller{}
 
 //END OF SIGNATURES
 
@@ -68,8 +76,6 @@ enum ValvePosition{ opened , closed}
 enum LandSize{small,mid,large}
 enum SoilPorosity{loose,compacted,normal}
 enum Colour { Red, Green, Blue, Yellow }
-
-
 //END OF ENUMERATIONS
 
 
@@ -123,11 +129,19 @@ all a : AccessPoint, a1: Area| a1.sensors = a.watching => a = a1.point
 //
 
 all map: MainAccessPoint, ap: AccessPoint | ap in map.controls => ap in Area.point
+
+// all sensors must be placed in the area it is related to
+placement = ~sensors
 }
 
 fact CropTypes {
 // All percepts are in an cropType
 all c: CropType, p:Percepts| p in dom[c.required].type
+}
+
+fact perceptTypeConstraints{
+
+ all p: PerceptType, c: p.coloured | one p1: PerceptType | p1.coloured = c
 }
 
 
@@ -140,22 +154,30 @@ all disj p1,p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigat
 // if a pipe irrigates an area then that pipe is the only pipe in that area
 all p1,p2:Pipe | (p1.irrigates = p2.irrigates) => p1 = p2
 
+//pipe cannot be connected to itself
 no (iden & connectedTo)
 
+// all areas are irrigated by some pipe
 all a : Area | a in Pipe.irrigates
 
+// each pipe is fitted with a single unique valve
 all p1,p2:Pipe | (p1.fittedWith = p2.fittedWith) => p1 = p2
 
+// All valves in the system must be fitted to a pipe
+all v : Valve | v in ran[fittedWith]
 
+
+all p: Pipe | p in p.*connectedTo
 }
 
 
 fact constraints{
+// both areas are beside each other
 symmetric[beside]
+// if a pipe connection is mutual
 symmetric[connectedTo]
-
-//all s: Sensor | s in s.placement.sensors
-//all a,b: Area| b in a.beside implies a != b
+//only one Reservoir in system
+one Reservoir
 }
 
 fact FactsAboutArea{
@@ -169,11 +191,24 @@ all a:Area | (a.measuredAt = large) => #a.sensors = 12
 all a:Area, ct: CropType|  ct in a.planted => ct.requiredPorosity = a.landPorosity
 //an area cannot be beside itself
 no (iden & beside)
+// All CropTypes in system must be planted in an area
+all c : CropType | c in ran[planted]
+
+}
+
+fact PerceptReading{
+  #PerceptReading = 3
+  one p: PerceptReading | p.level = Low
+  one p: PerceptReading | p.level = Med
+  one p: PerceptReading | p.level = High
+  all p: PerceptReading | p.level = High => no (p & dom[higherReading])
+  all p: PerceptReading | p.level = Low => no (p & ran[higherReading])
 }
 
 // END OF FACTS
 
 //PREDICATE
+
 pred system1[]{
 some Area 
 some Valve 
@@ -182,7 +217,7 @@ some Sensor
 some Pipe 
 #Area = 1
 // All sensors within an area are receiving readings aligned with the level required for the crop type in that area.
- all a: Area, s: Sensor | (s in a.point.watching) implies (s.measures -> s.measurement in a.planted.required)
+ all a: Area, s: Sensor | (s in a.point.watching) implies (s.measures -> s.measurement.level in a.planted.required)
 }
 run system1 for 4 expect 1
 
@@ -198,8 +233,9 @@ pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
  all p : Pipe | p in Pipe.connectedTo
  one p : Pipe | p in Reservoir.distributesTo
 
-//some AreaSmall, AreaLarge, AreaMid: Area | (AreaSmall.measuredAt = small and #AreaSmall.sensors = 8) and AreaLarge.measuredAt = large and AreaMid.measuredAt = mid
-
 }
 run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for  27
+
+
+
 //END OF PREDICATE
