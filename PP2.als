@@ -10,7 +10,7 @@ open util/graph[Pipe]
 sig Area {
 	size: one LandSize,
 	landPorosity: one SoilPorosity,
-	beside: set Area,
+	beside: some Area,
 	sensors : set Sensor,
 	planted : one CropType,
 	point : one AccessPoint
@@ -173,7 +173,7 @@ fact GraphOfPipes {
 	all v: Valve | v in ran[fittedWith]
 	
 	// All pipes that are not attached to the reservoir are connected to another pipe
-	all p: Pipe | p in p.*connectedTo
+//	all p: Pipe | p in p.*connectedTo
 }
 
 fact constraints{
