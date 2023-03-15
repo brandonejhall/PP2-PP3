@@ -1,3 +1,6 @@
+// Irrigation System Project
+// Members: Twanda-Lee Briscoe, Brandon Hall, Zaria Chen Shui
+
 //IMPORTS
 open util/relation 
 open util/ternary
@@ -23,7 +26,7 @@ sig Reservoir{
 }
 
 sig Valve{
-	postioned : one ValvePosition
+	positioned : one ValvePosition
 }
 
 
@@ -48,7 +51,8 @@ sig PerceptReading{
 
 sig PerceptType{
 	type : one Percepts, 
-	coloured: one Colour
+	coloured: one Colour,
+	//intervention:  one InterventionType
 }
 
 sig Pipe{
@@ -58,7 +62,7 @@ sig Pipe{
 }
 
 sig MainAccessPoint{
-controls: set AccessPoint}
+	controls: set AccessPoint}
 
 //END OF SIGNATURES
 
@@ -67,7 +71,7 @@ controls: set AccessPoint}
 
 enum Percepts {temperature,moisture,sunlight,humidity}
 enum PerceptLevels{Low,Med,High}
-enum irrigationType{drip,sprinkler,misting}
+enum InterventionType{drip,sprinkler,misting,manual}
 enum ValvePosition{ opened , closed}
 enum LandSize{small,mid,large}
 enum SoilPorosity{loose,compacted,normal}
@@ -140,6 +144,15 @@ fact perceptTypeConstraints{
 	all c: Colour | one p1: PerceptType | p1.coloured = c
 }
 
+fact Interventions {
+	// When all readings are as required for each croptype, valve must be closed
+	all s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level in c.required) implies ((irrigates.a).fittedWith.positioned = closed)
+	
+	// When some readings are lower than is required, valve must be opened
+	some s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level not in c.required and (s.measurement.level not in s.measurement.higherReading.level) implies (irrigates.a).fittedWith.positioned = opened)
+}
+
+
 fact DirectedGraphOfPipes {
 	// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
 	all disj p1, p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
@@ -201,7 +214,7 @@ fact PerceptReading{
 
 //PREDICATE
 
-pred AllSensorReadingsRequireNoIntervention[]{
+pred SensorReadingsDontRequireIntervention[]{
 	some Area 
 	some Valve 
 	some CropType 
@@ -211,7 +224,7 @@ pred AllSensorReadingsRequireNoIntervention[]{
 	// All sensors within an area are receiving readings aligned with the level required for the crop type in that area.
 	 all a: Area, s: Sensor | (s in a.point.watching) implies (s.measures -> s.measurement.level in a.planted.required)
 }
-run AllSensorReadingsRequireNoIntervention for 4 expect 1
+run SensorReadingsDontRequireIntervention for 4 expect 1
 
 pred SensorReadingsRequireIntervention[]{
 	some Area 
@@ -223,7 +236,7 @@ pred SensorReadingsRequireIntervention[]{
 	// All sensor readings show interventions interventions required for the crop type in that area.
 	 all a: Area, s: Sensor, c: CropType | (s in a.point.watching) implies (s.measures -> s.measurement.level not in c.required )
 }
-run SensorReadingsRequireIntervention for 4 expect 1
+//run SensorReadingsRequireIntervention for 4 expect 1
 
 pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	one a: Area | a.size = small
