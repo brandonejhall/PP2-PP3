@@ -88,7 +88,7 @@ fact GraphColouringOfNetworkOfSensorsInAnArea{
 	// if two sensors are linked they are not the same color
 	all disj s1, s2 : Sensor | s2 in s1.linked  => not(s1.measures.coloured = s2.measures.coloured)
 	//links between sensors are mutual
-	//symmetric[linked]
+	symmetric[linked]
 	// sensor is not linked to itself
 	all s: Sensor | not (s in s.linked)
 	//if two sensors are linked they are in the same area
@@ -151,7 +151,6 @@ fact Interventions {
 	// When some readings are lower than is required, valve must be opened
 	some s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level not in c.required and (s.measurement.level not in s.measurement.higherReading.level) implies (irrigates.a).fittedWith.positioned = opened)
 }
-
 
 fact DirectedGraphOfPipes {
 	// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
