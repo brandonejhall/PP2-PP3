@@ -152,7 +152,8 @@ fact Interventions {
 	some s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level not in c.required and (s.measurement.level not in s.measurement.higherReading.level) implies (irrigates.a).fittedWith.positioned = opened)
 }
 
-fact DirectedGraphOfPipes {
+
+fact GraphOfPipes {
 	// if a pipe is connected to another then it does not irrigate the same area  and the areas they irrigate are beside each other
 	all disj p1, p2: Pipe | p2 in p1.connectedTo implies no(p2.irrigates & p1.irrigates) and (p1.irrigates in p2.irrigates.beside)
 	
@@ -212,7 +213,7 @@ fact PerceptReading{
 // END OF FACTS
 
 //PREDICATE
-
+//TURN OFF OVERFLOW PROTECTION FOR LARGE PREDICATES TO GENERATE AN INSTANCE
 pred SensorReadingsDontRequireIntervention[]{
 	some Area 
 	some Valve 
@@ -235,7 +236,7 @@ pred SensorReadingsRequireIntervention[]{
 	// All sensor readings show interventions interventions required for the crop type in that area.
 	 all a: Area, s: Sensor, c: CropType | (s in a.point.watching) implies (s.measures -> s.measurement.level not in c.required )
 }
-//run SensorReadingsRequireIntervention for 4 expect 1
+run SensorReadingsRequireIntervention for 4 expect 1
 
 pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	one a: Area | a.size = small
@@ -247,7 +248,22 @@ pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	all p : Pipe | p in Pipe.connectedTo
 	one p : Pipe | p in Reservoir.distributesTo
 }
-// run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for 27
+run AllAreasHaveADifferentSizeAndDifferentSoilPorosity for 27
+
+pred GraphOfSensorsExample{
+	one a:Area | a.size  = mid
+
+}
+
+run GraphOfSensorsExample for 12
+
+
+pred GraphOfPipes{
+	all a:Area | a.size  = small
+	#Area = 3
+	
+}
+run GraphOfPipes for 12
 
 
 
