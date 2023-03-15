@@ -265,6 +265,20 @@ pred GraphOfPipes{
 }
 run GraphOfPipes for 12
 
+pred SomeReadingsAreSuitableAndOthersAreNot[]{
+	some Area
+	some Sensor
+	some CropType
+	some Pipe
+	some Valve
+	some PerceptReading
+	//one a: Area | a.size = large
+	//when there is a set of sensors of the same type of the same area giving different readings some readings will cause and intervention and others will not.
+	all s: Sensor, a: Area, c: CropType | (s in a.point.watching - s) implies (s.measures -> s.measurement.level not in c.required)
+
+}
+
+run SomeReadingsAreSuitableAndOthersAreNot for 12
 
 
 //END OF PREDICATE
