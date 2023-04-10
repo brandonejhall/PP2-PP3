@@ -17,7 +17,8 @@ sig Area {
 }
 
 sig AccessPoint{
-	watching: set Sensor
+	watching: set Sensor,
+	notify: lone MainAccessPoint
 }
 
 
@@ -26,7 +27,8 @@ sig Reservoir{
 }
 
 sig Valve{
-	positioned : one ValvePosition
+	var positioned : one ValvePosition,
+	var intervene : lone InterventionType
 }
 
 
@@ -38,21 +40,26 @@ sig Sensor{
 	measures: one PerceptType,
 	linked : some Sensor,
 	placement : one Area,
-	measurement : one PerceptReading
+	var measurement : one PerceptReading
 }
 
 sig PerceptReading{
-	higherReading: lone PerceptReading,
-	level: one PerceptLevels
+	var higherReading: lone Perc, 
+	var level: one PerceptLevels
 } {
- all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
- some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
+ always all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
+ always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
 }
 
+sig PerceptReadingLevels{
+}{
+always all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
+ always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
+}
 sig PerceptType{
 	type : one Percepts, 
 	coloured: one Colour,
-	//intervention:  one InterventionType
+	intervention:  lone InterventionType
 }
 
 sig Pipe{
@@ -61,8 +68,9 @@ sig Pipe{
 	irrigates : one Area
 }
 
-sig MainAccessPoint{
-	controls: set AccessPoint}
+one sig MainAccessPoint in AccessPoint{
+	controls : one Reservoir
+	}
 
 //END OF SIGNATURES
 
@@ -88,7 +96,7 @@ fact GraphColouringOfNetworkOfSensorsInAnArea{
 	// if two sensors are linked they are not the same color
 	all disj s1, s2 : Sensor | s2 in s1.linked  => not(s1.measures.coloured = s2.measures.coloured)
 	//links between sensors are mutual
-	//symmetric[linked]
+	symmetric[linked]
 	// sensor is not linked to itself
 	all s: Sensor | not (s in s.linked)
 	//if two sensors are linked they are in the same area
@@ -99,21 +107,24 @@ fact GraphColouringOfNetworkOfSensorsInAnArea{
 	 all disj p1,p2: PerceptType | not(p2.type = p1.type) implies not(p1.coloured = p2.coloured)
 	//all sensors with different colours are connected
 	all disj s,j:Sensor | all a:Area | ( ((s+j) in a.sensors) and not(s.measures.coloured = j.measures.coloured)) implies j in s.linked and s in j.linked 
-}
 
+	all s:Sensor | no (s.measurement & (Sensor-s).measurement)
+}
 // this creates the star between the seperate access points in the system 
 fact SystemStar{
+	all mp : MainAccessPoint | (notify.mp) = (Area.point)-mp
+
 	// all sensors in an area will be watched by a single acces point
 	all a: Area |one ap: AccessPoint |ap.watching = a.sensors and ap in a.point
 
 	// all access points are controlled by main access point
-	all ap: AccessPoint |one map:MainAccessPoint| ap in map.controls
+	//all ap: AccessPoint |one map:MainAccessPoint| ap in map.controls
 
 	//There is only one Main AccessPoint in the system
 	one MainAccessPoint
 	
 	// there is a Main access point which cotnrols all access points in the system
-	all a: AccessPoint | one map: MainAccessPoint | a in map.controls
+	//all a: AccessPoint | one map: MainAccessPoint | a in map.controls
 	
 	//if the areas are not the same  it means they cannot havethe same access points
 	all a1, a2: Area | a1 != a2 => a1.point != a2.point
@@ -128,7 +139,7 @@ fact SystemStar{
 	all a : AccessPoint, a1: Area| a1.sensors = a.watching => a = a1.point
 	
 	// if access point is controlled by main access point this means that the access point is associated with an area
-	all map: MainAccessPoint, ap: AccessPoint | ap in map.controls => ap in Area.point
+	//all map: MainAccessPoint, ap: AccessPoint | ap in map.controls => ap in Area.point
 	
 	// all sensors must be placed in the area it is related to
 	placement = ~sensors
@@ -205,16 +216,16 @@ fact FactsAboutArea{
 	// if there are more than one area then areas must be beside an area
 	gt[#Area,1] => Area = ran[beside]
 }
-
+/*
 fact PerceptReading{
-	#PerceptReading = 3
+	//#PerceptReading = 3
 	one p: PerceptReading | p.level = Low
 	one p: PerceptReading | p.level = Med
 	one p: PerceptReading | p.level = High
 	all p: PerceptReading | p.level = High => no (p & dom[higherReading])
 	all p: PerceptReading | p.level = Low => no (p & ran[higherReading])
 	no iden & higherReading
-}
+}*/
 
 // END OF FACTS
 
@@ -242,7 +253,7 @@ pred SensorReadingsRequireIntervention[]{
 	// All sensor readings show interventions interventions required for the crop type in that area.
 	 all a: Area, s: Sensor, c: CropType | (s in a.point.watching) implies (s.measures -> s.measurement.level not in c.required )
 }
-run SensorReadingsRequireIntervention for 4 expect 1
+run SensorReadingsRequireIntervention for 40 expect 1
 
 pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	one a: Area | a.size = small
@@ -292,3 +303,55 @@ pred StarOfAccessPoint[]{
 
 
 //END OF PREDICATE
+
+
+//OPERATION
+
+// Change In Reading
+
+// Change In Measurment
+
+//Change In Level
+/*
+pred ChangeToOptimalValue[reading: PerceptReading, type:PerceptType, sensor:Sensor, land:Area,pipe:Pipe,nextLevel:PerceptLevels]{
+	
+	#reading = 1
+	
+	#sensor = 1
+	
+	#nextLevel = 1
+	
+	sensor in land.sensors
+	
+	not (reading in  measurement)
+
+	no reading.higherLevels & PerceptReading
+
+	no reading.level & PerceptReading
+	
+	land in pipe.irrigates
+	
+	pipe.fittedWith = opened
+
+	not (nextLevel = land.planted.required[reading])
+
+	not (sensor.measurement.level = land.planted.required[reading])
+
+	//POST CONDITIONS
+
+	positioned' = positioned
+
+	intervene' = intervene
+	
+	measurement' =  (measurement - sensor.measurment) + sensor -> reading
+
+	higherReading' =  (higherReading - sensor.measurement ->
+
+	level' = level - (reading -> 
+
+	
+
+
+	
+	
+}*/
