@@ -27,8 +27,8 @@ sig Reservoir{
 }
 
 sig Valve{
-	var positioned : one ValvePosition,
-	var intervene : lone InterventionType
+	var positioned : set ValvePosition, //one
+	var intervene : set InterventionType //lone
 }
 
 
@@ -40,22 +40,18 @@ sig Sensor{
 	measures: one PerceptType,
 	linked : some Sensor,
 	placement : one Area,
-	var measurement : one PerceptReading
+	var measurement : set PerceptReading // one
 }
 
 sig PerceptReading{
-	var higherReading: lone Perc, 
-	var level: one PerceptLevels
+	var higherReading: set PerceptLevels, //lone
+	var level: set PerceptLevels //one
 } {
  always all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
- always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
+ //always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
 }
 
-sig PerceptReadingLevels{
-}{
-always all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
- always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
-}
+
 sig PerceptType{
 	type : one Percepts, 
 	coloured: one Colour,
@@ -162,7 +158,7 @@ fact Interventions {
 	all s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level in c.required) implies ((irrigates.a).fittedWith.positioned = closed)
 	
 	// When some readings are lower than is required, valve must be opened
-	some s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level not in c.required and (s.measurement.level not in s.measurement.higherReading.level) implies (irrigates.a).fittedWith.positioned = opened)
+	//some s: Sensor, c: CropType, a: Area | (s.measures -> s.measurement.level not in c.required and (s.measurement.level not in s.measurement.higherReading.level) implies (irrigates.a).fittedWith.positioned = opened)
 }
 
 
@@ -345,7 +341,7 @@ pred ChangeToOptimalValue[reading: PerceptReading, type:PerceptType, sensor:Sens
 	
 	measurement' =  (measurement - sensor.measurment) + sensor -> reading
 
-	higherReading' =  (higherReading - sensor.measurement ->
+	higherReading' =  (higherReading) reading -> sensor.measurement.higherReading ->
 
 	level' = level - (reading -> 
 
