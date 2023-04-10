@@ -69,6 +69,15 @@ one sig MainAccessPoint in AccessPoint{
 	}
 
 //END OF SIGNATURES
+//MUTABLE FACTS
+
+fact invMutable{
+	all v:Valve | one v.positioned 
+	
+	all s: Sensor | one s.measurement
+
+	all p:PerceptReading | (p in Sensor.measurement) => lone p.higherReading and one p.level
+}
 
 
 //ENUMERATIONS
@@ -343,11 +352,5 @@ pred ChangeToOptimalValue[reading: PerceptReading, type:PerceptType, sensor:Sens
 
 	higherReading' =  (higherReading) reading -> sensor.measurement.higherReading ->
 
-	level' = level - (reading -> 
-
-	
-
-
-	
-	
+	level' = level - (reading -> 	
 }*/
