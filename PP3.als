@@ -5,6 +5,8 @@
 open util/relation 
 open util/ternary
 open util/graph[Pipe]
+open util/graph[Levels]
+
 //SIGNATURES
 
 sig Area {
@@ -21,6 +23,15 @@ sig AccessPoint{
 	notify: lone MainAccessPoint
 }
 
+sig Levels in PerceptLevels{
+ inOrder : set Levels,
+}
+
+sig PerceptReading{
+	var higherReading: set Levels, //lone
+	var level: set Levels //one
+}
+
 
 sig Reservoir{
 	distributesTo: one Pipe
@@ -33,7 +44,7 @@ sig Valve{
 
 
 sig CropType{
-	required: PerceptType -> PerceptLevels,
+	required: PerceptType -> Levels,
 	requiredPorosity : one SoilPorosity
 }
 sig Sensor{
@@ -43,13 +54,6 @@ sig Sensor{
 	var measurement : set PerceptReading // one
 }
 
-sig PerceptReading{
-	var higherReading: set PerceptLevels, //lone
-	var level: set PerceptLevels //one
-} {
- always all m, n: PerceptReading | m.@higherReading = n.@higherReading implies m = n
- //always some lev: PerceptReading | lev.^@higherReading = PerceptReading - lev 
-}
 
 
 sig PerceptType{
@@ -76,7 +80,9 @@ fact invMutable{
 	
 	all s: Sensor | one s.measurement
 
-	all p:PerceptReading | (p in Sensor.measurement) => lone p.higherReading and one p.level
+	all p:PerceptReading | (p in Sensor.measurement) => one p.level 
+
+	all p:PerceptReading | (p in Sensor.measurement) => p.higherReading = getHigherLevels[p.level]
 }
 
 
@@ -93,6 +99,19 @@ enum Colour { Red, Green, Blue, Yellow }
 
 
 //FACTS
+
+//SEQUENCE OF PERCEPT LEVELS
+fact SequenceOfLevels{
+	treeRootedAt[inOrder, Levels]
+	eq[#roots[inOrder],1]
+	eq[#leaves[inOrder],1]
+	all lev : innerNodes[inOrder] | one lev.inOrder
+	Low in roots[inOrder]
+	Med in innerNodes[inOrder]
+	High in leaves[inOrder]
+	
+
+}
 
 //SENSORS ARE CONNECTED VIA GRAPH COLOURING
 fact GraphColouringOfNetworkOfSensorsInAnArea{
@@ -221,15 +240,19 @@ fact FactsAboutArea{
 	// if there are more than one area then areas must be beside an area
 	gt[#Area,1] => Area = ran[beside]
 }
+
 /*
-fact PerceptReading{
-	//#PerceptReading = 3
-	one p: PerceptReading | p.level = Low
-	one p: PerceptReading | p.level = Med
-	one p: PerceptReading | p.level = High
-	all p: PerceptReading | p.level = High => no (p & dom[higherReading])
-	all p: PerceptReading | p.level = Low => no (p & ran[higherReading])
+fact SequencePerceptLevels{
+	//#PerceptLevels = 3
+	//one p: PerceptReading | p.level = Low
+	//one p: PerceptReading | p.level = Med
+	//one p: PerceptReading | p.level = High
+	all p: PerceptReading | p.level = High => no (p.higherReading & PerceptReading)
+	all p: PerceptReading| some px : PerceptReading - p | p.level = Med => (px in p.higherReading ) and (px in higherReading.p)
+	all p : PerceptReading | no (p.higherReading.level & p.level)
+	//all disj p,q: PerceptReading | p.level in q.level  => no (p & (q.higherReading+ higherReading.q) ) and no (q & (p.higherReading+ higherReading.p) )
 	no iden & higherReading
+	
 }*/
 
 // END OF FACTS
@@ -309,48 +332,55 @@ pred StarOfAccessPoint[]{
 
 //END OF PREDICATE
 
+// FUNCTIONS
 
+fun getHigherLevels[lev: Levels]: Levels {lev.^inOrder - lev}
 //OPERATION
 
-// Change In Reading
 
-// Change In Measurment
-
-//Change In Level
-/*
-pred ChangeToOptimalValue[reading: PerceptReading, type:PerceptType, sensor:Sensor, land:Area,pipe:Pipe,nextLevel:PerceptLevels]{
+pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading, sensor:Sensor, land:Area,pipe:Pipe]{
 	
-	#reading = 1
+	#oldReading = 1
+
+	#newReading = 1
 	
 	#sensor = 1
 	
-	#nextLevel = 1
 	
+	// sensor is in land passed to function
 	sensor in land.sensors
 	
-	not (reading in  measurement)
+	// reading in measurement of that sensor
+	oldReading in sensor.measurement
 
-	no reading.higherLevels & PerceptReading
-
-	no reading.level & PerceptReading
+	//does not have a higher level yet
+	no newReading.higherReading & Levels
 	
+	// does not have a reading yet
+	no newReading.level & PerceptLevels
+	//pipe irrigates area passed
 	land in pipe.irrigates
 	
-	pipe.fittedWith = opened
+	//valve is open
+	pipe.fittedWith.positioned = opened
+	
+	// some intervention is taking place
+	gt[#pipe.fittedWith.intervene,1]
+	
 
-	not (nextLevel = land.planted.required[reading])
+	//current sensor measurment is not the required reading for the cropType
+	not (sensor.measurement.level = land.planted.required[sensor.measures])
 
-	not (sensor.measurement.level = land.planted.required[reading])
-
+	
 	//POST CONDITIONS
 
 	positioned' = positioned
 
 	intervene' = intervene
-	
-	measurement' =  (measurement - sensor.measurment) + sensor -> reading
 
-	higherReading' =  (higherReading) reading -> sensor.measurement.higherReading ->
+	higherReading' =  (higherReading - (oldReading -> PerceptLevels)) + newReading -> getHigherLevels[land.planted.required[sensor.measures]]  
+ 	
+	measurement' =  (measurement - (sensor -> oldReading)) + sensor-> newReading
 
-	level' = level - (reading -> 	
-}*/
+	level' = level - (oldReading -> PerceptLevels) + (newReading -> land.planted.required[sensor.measures])	
+}
