@@ -365,12 +365,12 @@ pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionTy
 	irrigates.area.fittedWith.positioned = closed
 	// no current intervention taking place on area
 	no irrigates.area.fittedWith.intervene & InterventionType 
-	
+	// intervention type is the one required
 	interType in dom[Area.planted.required].intervention
 	
 	//POSTCONDITIONS
 	
-	positioned' = positioned + irrigates.area.fittedWith -> closed
+	positioned' = positioned + irrigates.area.fittedWith -> opened
 
 	intervene' = intervene + irrigates.area.fittedWith -> interType
 
@@ -431,3 +431,17 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 
 	intervene' = intervene
 }
+/*
+pred StopIntervention[area:Area,pt:PerceptType]{
+	#area = 1
+	// valve is open
+	all p:irrigates.area | p.fittedWith.positioned = opened
+
+	
+	
+	
+
+
+
+}*/
+
