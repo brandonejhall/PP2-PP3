@@ -48,6 +48,7 @@ sig CropType{
 	required: PerceptType -> Levels,
 	requiredPorosity : one SoilPorosity
 }
+
 sig Sensor{
 	measures: one PerceptType,
 	linked : some Sensor,
@@ -77,15 +78,17 @@ one sig MainAccessPoint in AccessPoint{
 //MUTABLE FACTS
 
 fact invMutable{
-	all v:Valve | one v.positioned 
+	always all v:Valve | one v.positioned and lone v.intervene
 	
-	all s: Sensor | one s.measurement
+	always all s: Sensor | one s.measurement
 
-	all p:PerceptReading | (p in Sensor.measurement) => one p.level 
+	always all p:PerceptReading | (p in Sensor.measurement) => one p.level 
 
-	all p:PerceptReading | (p in Sensor.measurement) => p.higherReading = getHigherLevels[p.level]
+	always all p:PerceptReading | (p in Sensor.measurement) => p.higherReading = getHigherLevels[p.level]
 
-	all v:Valve | v.positioned = closed => no ( InterventionType & v.intervene)
+	always all v:Valve | v.positioned = closed => no ( InterventionType & v.intervene)
+	
+
 }
 
 
@@ -350,6 +353,46 @@ fun interventionRequired[area:Area,pt:PerceptType]: Area{
 
 }
 
+fact {
+
+always some  area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
+	StartingIntervention[area, pt , interType] or 
+	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
+	StopIntervention[area,pt]
+/*some  area:Area,interType:InterventionType,pt : PerceptType|
+StartingIntervention[area, pt , interType]*/
+}
+
+
+
+
+
+
+run { eventually some a:Area | no ( a.sensors.measurement.level & a.planted.required[a.sensors.measures] ) } for 8 expect 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -371,7 +414,7 @@ pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionTy
 	
 	//POSTCONDITIONS
 	
-	positioned' = positioned + irrigates.area.fittedWith -> opened
+	positioned' =(positioned - irrigates.area.fittedWith -> ValvePosition) + irrigates.area.fittedWith -> opened
 
 	intervene' = intervene + irrigates.area.fittedWith -> interType
 
@@ -449,7 +492,7 @@ pred StopIntervention[area:Area,pt:PerceptType]{
 
 
 	//POST CONDITIONS
-	positioned' = positioned + irrigates.area -> closed
+	positioned' = (positioned - irrigates.area.fittedWith -> ValvePosition) + irrigates.area -> closed
 
 	intervene' = intervene -  irrigates.area.fittedWith -> InterventionType
 
@@ -461,13 +504,6 @@ pred StopIntervention[area:Area,pt:PerceptType]{
 
 	level' = level
 
-
-	
-	
-	
-	
-
-
-
 }
+
 
