@@ -352,6 +352,7 @@ fun interventionRequired[area:Area,pt:PerceptType]: Area{
 
 
 
+
 //OPERATION
 
 pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionType]{
@@ -410,7 +411,7 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 	pipe.fittedWith.positioned = opened
 	
 	// some intervention is taking place
-	gt[#pipe.fittedWith.intervene,1]
+	gt[#pipe.fittedWith.intervene,0]
 	
 
 	//current sensor measurment is not the required reading for the cropType
@@ -431,17 +432,42 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 
 	intervene' = intervene
 }
-/*
+
 pred StopIntervention[area:Area,pt:PerceptType]{
+	//only one area is passed
 	#area = 1
 	// valve is open
 	all p:irrigates.area | p.fittedWith.positioned = opened
+	// an intervention is taking place by the valve
+	all p:irrigates.area | p.fittedWith.intervene in InterventionType
+	
+	//no intervention required
+	not area in interventionRequired[area,pt]
+
+	//current intervention is related to the cropType
+	 irrigates.area.fittedWith.intervene in dom[area.planted.required].intervention
+
+
+	//POST CONDITIONS
+	positioned' = positioned + irrigates.area -> closed
+
+	intervene' = intervene -  irrigates.area.fittedWith -> InterventionType
+
+	//FRAME CONDITIONS
+
+	higherReading' =  higherReading  
+ 	
+	measurement' =  measurement
+
+	level' = level
+
 
 	
 	
 	
+	
 
 
 
-}*/
+}
 
