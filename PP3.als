@@ -6,6 +6,7 @@ open util/relation
 open util/ternary
 open util/graph[Pipe]
 open util/graph[Levels]
+open util/boolean
 
 //SIGNATURES
 
@@ -59,7 +60,7 @@ sig Sensor{
 sig PerceptType{
 	type : one Percepts, 
 	coloured: one Colour,
-	intervention:  lone InterventionType
+	intervention:  one InterventionType
 }
 
 sig Pipe{
@@ -83,6 +84,8 @@ fact invMutable{
 	all p:PerceptReading | (p in Sensor.measurement) => one p.level 
 
 	all p:PerceptReading | (p in Sensor.measurement) => p.higherReading = getHigherLevels[p.level]
+
+	all v:Valve | v.positioned = closed => no ( InterventionType & v.intervene)
 }
 
 
@@ -335,9 +338,51 @@ pred StarOfAccessPoint[]{
 // FUNCTIONS
 
 fun getHigherLevels[lev: Levels]: Levels {lev.^inOrder - lev}
+
+
+// this function returns the area if an intervention is required otherwise it returns all areas excluding the one passed if not interventions are required
+fun interventionRequired[area:Area,pt:PerceptType]: Area{
+
+	let allSensors = {x: Sensor| x in area.sensors and x.measures = pt} |
+	let subOptimal = {x: Sensor |some y:PerceptLevels| x in allSensors and y in (x.measurement.level & (Levels - (area.planted.required[pt])))} |
+	
+	#subOptimal > (#subOptimal - #allSensors) => area else Area - area
+
+}
+
+
+
 //OPERATION
 
+pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionType]{
+	//PRECONDITIONS
+	#area = 1
+	#interType = 1
+	#pt = 1
+	// intervention needed for this area
+	area in interventionRequired[area,pt]
+	//  valve is closed
+	irrigates.area.fittedWith.positioned = closed
+	// no current intervention taking place on area
+	no irrigates.area.fittedWith.intervene & InterventionType 
+	
+	interType in dom[Area.planted.required].intervention
+	
+	//POSTCONDITIONS
+	
+	positioned' = positioned + irrigates.area.fittedWith -> closed
 
+	intervene' = intervene + irrigates.area.fittedWith -> interType
+
+	//FRAMECONDITIONS
+	
+	higherReading' =  higherReading  
+ 	
+	measurement' =  measurement
+
+	level' = level
+
+}
 pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading, sensor:Sensor, land:Area,pipe:Pipe]{
 	
 	#oldReading = 1
@@ -374,13 +419,15 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 	
 	//POST CONDITIONS
 
-	positioned' = positioned
-
-	intervene' = intervene
-
 	higherReading' =  (higherReading - (oldReading -> PerceptLevels)) + newReading -> getHigherLevels[land.planted.required[sensor.measures]]  
  	
 	measurement' =  (measurement - (sensor -> oldReading)) + sensor-> newReading
 
 	level' = level - (oldReading -> PerceptLevels) + (newReading -> land.planted.required[sensor.measures])	
+
+	//FRAME CONDITIONS
+
+	positioned' = positioned
+
+	intervene' = intervene
 }
