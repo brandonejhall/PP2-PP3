@@ -81,6 +81,8 @@ fact invMutable{
 	always all v:Valve | one v.positioned and lone v.intervene
 	
 	always all s: Sensor | one s.measurement
+	
+	always all s:Sensor.measurement | one s.level and lone s.higherReading and s.higherReading = getHigherLevels[s.level]
 
 	always all p:PerceptReading | (p in Sensor.measurement) => one p.level 
 
@@ -167,7 +169,7 @@ fact SystemStar{
 	
 	//if access point is watching the sensors of that area this mean that the acess point is an access point of that area
 	all a : AccessPoint, a1: Area| a1.sensors = a.watching => a = a1.point
-	
+	all a: AccessPoint | a in ran[point]
 	// if access point is controlled by main access point this means that the access point is associated with an area
 	//all map: MainAccessPoint, ap: AccessPoint | ap in map.controls => ap in Area.point
 	
@@ -353,14 +355,10 @@ fun interventionRequired[area:Area,pt:PerceptType]: Area{
 
 }
 
-fact {
+fun subOptimalSensors[area:Area]: Sensor{
+	let allSensors = {x: Sensor| x in area.sensors} |
+	{x: Sensor | x in allSensors and no (area.planted.required[x.measures] & x.measurement.level)   }
 
-always some  area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
-	StartingIntervention[area, pt , interType] or 
-	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
-	StopIntervention[area,pt]
-/*some  area:Area,interType:InterventionType,pt : PerceptType|
-StartingIntervention[area, pt , interType]*/
 }
 
 
@@ -368,11 +366,19 @@ StartingIntervention[area, pt , interType]*/
 
 
 
-run { eventually some a:Area | no ( a.sensors.measurement.level & a.planted.required[a.sensors.measures] ) } for 8 expect 1
+pred OneSensorBecomeOptimal{ 
+one Area
+historically all a:Area | #subOptimalSensors[a]  = 1
+some area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
+	StartingIntervention[area, pt , interType] or 
+	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
+	StopIntervention[area,pt]
+
+eventually  all a:Area,v:Valve | #subOptimalSensors[a] = 0 and v.positioned = closed
+}
 
 
-
-
+run OneSensorBecomeOptimal   for 8 but 10 steps  expect 1 
 
 
 
@@ -428,9 +434,7 @@ pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionTy
 
 }
 pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading, sensor:Sensor, land:Area,pipe:Pipe]{
-	
 	#oldReading = 1
-
 	#newReading = 1
 	
 	#sensor = 1
@@ -465,14 +469,13 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 
 	higherReading' =  (higherReading - (oldReading -> PerceptLevels)) + newReading -> getHigherLevels[land.planted.required[sensor.measures]]  
  	
-	measurement' =  (measurement - (sensor -> oldReading)) + sensor-> newReading
+	measurement' =  (measurement - (sensor -> oldReading)) 
 
-	level' = level - (oldReading -> PerceptLevels) + (newReading -> land.planted.required[sensor.measures])	
+	level' = (level - (oldReading -> PerceptLevels)) + (newReading -> land.planted.required[sensor.measures])	
 
 	//FRAME CONDITIONS
 
 	positioned' = positioned
-
 	intervene' = intervene
 }
 
@@ -483,27 +486,26 @@ pred StopIntervention[area:Area,pt:PerceptType]{
 	all p:irrigates.area | p.fittedWith.positioned = opened
 	// an intervention is taking place by the valve
 	all p:irrigates.area | p.fittedWith.intervene in InterventionType
-	
 	//no intervention required
 	not area in interventionRequired[area,pt]
-
 	//current intervention is related to the cropType
 	 irrigates.area.fittedWith.intervene in dom[area.planted.required].intervention
-
-
 	//POST CONDITIONS
 	positioned' = (positioned - irrigates.area.fittedWith -> ValvePosition) + irrigates.area -> closed
-
 	intervene' = intervene -  irrigates.area.fittedWith -> InterventionType
-
 	//FRAME CONDITIONS
-
 	higherReading' =  higherReading  
- 	
 	measurement' =  measurement
-
 	level' = level
-
 }
 
+assert StartingInterventionAssertion
+{
+	
+	eventually always some area: Area, pt : PerceptType, interType:InterventionType | area in interventionRequired[area,pt]
 
+			implies (eventually always StartingIntervention[area,pt,interType])
+	
+}
+
+check StartingInterventionAssertion for 10 expect 0
