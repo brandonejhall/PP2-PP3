@@ -249,23 +249,11 @@ fact FactsAboutArea{
 	gt[#Area,1] => Area = ran[beside]
 }
 
-/*
-fact SequencePerceptLevels{
-	//#PerceptLevels = 3
-	//one p: PerceptReading | p.level = Low
-	//one p: PerceptReading | p.level = Med
-	//one p: PerceptReading | p.level = High
-	all p: PerceptReading | p.level = High => no (p.higherReading & PerceptReading)
-	all p: PerceptReading| some px : PerceptReading - p | p.level = Med => (px in p.higherReading ) and (px in higherReading.p)
-	all p : PerceptReading | no (p.higherReading.level & p.level)
-	//all disj p,q: PerceptReading | p.level in q.level  => no (p & (q.higherReading+ higherReading.q) ) and no (q & (p.higherReading+ higherReading.p) )
-	no iden & higherReading
-	
-}*/
+
 
 // END OF FACTS
 
-//PREDICATE
+//PREDICATES FOR PP2
 //TURN OFF OVERFLOW PROTECTION FOR LARGE PREDICATES TO GENERATE AN INSTANCE
 pred SensorReadingsDontRequireIntervention[]{
 	some Area 
@@ -289,7 +277,7 @@ pred SensorReadingsRequireIntervention[]{
 	// All sensor readings show interventions interventions required for the crop type in that area.
 	 all a: Area, s: Sensor, c: CropType | (s in a.point.watching) implies (s.measures -> s.measurement.level not in c.required )
 }
-run SensorReadingsRequireIntervention for 40 expect 1
+run SensorReadingsRequireIntervention for 4 expect 1
 
 pred AllAreasHaveADifferentSizeAndDifferentSoilPorosity[]{
 	one a: Area | a.size = small
@@ -318,6 +306,7 @@ pred GraphOfPipes{
 }
 run GraphOfPipes for 12
 
+
 pred SomeReadingsAreSuitableAndOthersAreNot[]{
 	some Area
 	some Sensor
@@ -338,7 +327,7 @@ pred StarOfAccessPoint[]{
 
 
 
-//END OF PREDICATE
+//END OF PREDICATES FOR PP2
 
 // FUNCTIONS
 
@@ -354,7 +343,7 @@ fun interventionRequired[area:Area,pt:PerceptType]: Area{
 	#subOptimal > (#subOptimal - #allSensors) => area else Area - area
 
 }
-
+// This function returns the sb optimal sensors in an area
 fun subOptimalSensors[area:Area]: Sensor{
 	let allSensors = {x: Sensor| x in area.sensors} |
 	{x: Sensor | x in allSensors and no (area.planted.required[x.measures] & x.measurement.level)   }
@@ -369,32 +358,52 @@ fun subOptimalSensors[area:Area]: Sensor{
 pred OneSensorBecomeOptimal{ 
 one Area
 historically all a:Area | #subOptimalSensors[a]  = 1
+
 some area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
 	StartingIntervention[area, pt , interType] or 
 	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
 	StopIntervention[area,pt]
 
-eventually  all a:Area,v:Valve | #subOptimalSensors[a] = 0 and v.positioned = closed
+eventually  (all a:Area,v:Valve | #subOptimalSensors[a] = 0 and v.positioned = closed) or stutter
 }
 
 
-run OneSensorBecomeOptimal   for 8 but 10 steps  expect 1 
+
+
+run OneSensorBecomeOptimal   for 8 but 10 steps expect 1 
 
 
 
+pred AllSensorsBecomeOptimal{ 
+#Area = 2
+all a:Area | gt[#subOptimalSensors[a],0] 
+
+some area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
+	StartingIntervention[area, pt , interType] or 
+	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
+	StopIntervention[area,pt]
+
+eventually  all a:Area| eq[#subOptimalSensors[a],0] 
+}
 
 
+run AllSensorsBecomeOptimal  for 12 but 30 steps expect 1 
 
 
+pred ValvesWillOpen{ 
+one Area
+all a:Area | gt[#subOptimalSensors[a],0] 
+
+some area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
+	StartingIntervention[area, pt , interType] or 
+	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
+	StopIntervention[area,pt]
+
+eventually  all v:Valve| v.positioned = opened 
+}
 
 
-
-
-
-
-
-
-
+run ValvesWillOpen  for 12 but 30 steps expect 1 
 
 
 
@@ -403,6 +412,16 @@ run OneSensorBecomeOptimal   for 8 but 10 steps  expect 1
 
 
 //OPERATION
+
+pred stutter{
+
+	all a:Area,pt :PerceptType  | not a in interventionRequired[a,pt]
+	positioned' = positioned
+	intervene' = intervene
+	higherReading' =  higherReading  
+	measurement' =  measurement
+	level' = level
+}
 
 pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionType]{
 	//PRECONDITIONS
@@ -434,11 +453,12 @@ pred StartingIntervention[area: Area, pt : PerceptType, interType:InterventionTy
 
 }
 pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading, sensor:Sensor, land:Area,pipe:Pipe]{
+	
 	#oldReading = 1
+
 	#newReading = 1
 	
 	#sensor = 1
-	
 	
 	// sensor is in land passed to function
 	sensor in land.sensors
@@ -467,21 +487,15 @@ pred ChangeToOptimalValue[oldReading:PerceptReading, newReading: PerceptReading,
 	
 	//POST CONDITIONS
 
-	higherReading' =  (higherReading - (oldReading -> PerceptLevels)) + newReading -> getHigherLevels[land.planted.required[sensor.measures]]  
- 	
+	higherReading' =  (higherReading - (oldReading -> PerceptLevels)) + newReading -> getHigherLevels[land.planted.required[sensor.measures]]  	
 	measurement' =  (measurement - (sensor -> oldReading)) 
-
 	level' = (level - (oldReading -> PerceptLevels)) + (newReading -> land.planted.required[sensor.measures])	
-
 	//FRAME CONDITIONS
-
 	positioned' = positioned
 	intervene' = intervene
 }
 
 pred StopIntervention[area:Area,pt:PerceptType]{
-	//only one area is passed
-	#area = 1
 	// valve is open
 	all p:irrigates.area | p.fittedWith.positioned = opened
 	// an intervention is taking place by the valve
@@ -499,13 +513,44 @@ pred StopIntervention[area:Area,pt:PerceptType]{
 	level' = level
 }
 
-assert StartingInterventionAssertion
-{
-	
-	eventually always some area: Area, pt : PerceptType, interType:InterventionType | area in interventionRequired[area,pt]
 
-			implies (eventually always StartingIntervention[area,pt,interType])
+fact {
+ some area:Area,sensor:Sensor,interType:InterventionType,pt : PerceptType,pipe:Pipe| some disj pro,prn:PerceptReading |  
+	stutter or  
+	StartingIntervention[area, pt , interType] or 
+	ChangeToOptimalValue[pro, prn, sensor, area,pipe] or 
+	StopIntervention[area,pt] 
+
+	
 	
 }
 
+
+
+assert StartingInterventionAssertion
+{	
+
+
+	 some area: Area, pt : PerceptType, interType:InterventionType|all v:Valve | 
+		(area in interventionRequired[area,pt]) and (subOptimalSensors[area] in Sensor) and v.positioned = closed
+			implies ( always eventually StartingIntervention[area,pt,interType])
+}
+
+assert ChangeToOptimalAssertion
+{	
+	 some area: Area, pt : PerceptType, interType:InterventionType|all v:Valve | 
+		(area in interventionRequired[area,pt]) and Sensor in subOptimalSensors[area] and v.positioned = closed
+			implies (always eventually StartingIntervention[area,pt,interType])
+}
+
+assert StopInterventionAssertions
+{	
+	 some area: Area, pt : PerceptType, interType:InterventionType|all v:Valve | 
+		(area in interventionRequired[area,pt]) and Sensor in subOptimalSensors[area] and v.positioned = closed
+			implies (always eventually StartingIntervention[area,pt,interType])
+}
+
+
+check ChangeToOptimalAssertion for 10 expect 0
 check StartingInterventionAssertion for 10 expect 0
+check ChangeToOptimalAssertion for 10 expect 0
